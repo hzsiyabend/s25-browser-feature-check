@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Browser feature check</title>
+<style>
+  body { font: 16px system-ui, sans-serif; margin: 1.5rem; max-width: 48rem; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f3f4f6; padding: 1rem; }
+</style>
+<h1>Browser feature check</h1>
+<p>This page checks feature availability. It does not run an exploit or send results to a server.</p>
+<pre id="result">Checking…</pre>
+<script>
+(async () => {
+  const result = {
+    userAgent: navigator.userAgent,
+    secureContext: isSecureContext,
+    webgpu: !!navigator.gpu,
+    VideoFrame: typeof VideoFrame !== 'undefined',
+    VideoDecoder: typeof VideoDecoder !== 'undefined',
+    ImageDecoder: typeof ImageDecoder !== 'undefined'
+  };
+  if (navigator.gpu) {
+    try {
+      const adapter = await navigator.gpu.requestAdapter();
+      result.webgpuAdapter = adapter ? 'available' : 'unavailable';
+      if (adapter) result.webgpuFeatures = [...adapter.features].sort();
+    } catch (error) { result.webgpuError = String(error); }
+  }
+  if (typeof VideoDecoder !== 'undefined') {
+    result.videoCodecs = {};
+    for (const codec of ['vp8', 'vp09.00.10.08', 'av01.0.04M.08']) {
+      try {
+        result.videoCodecs[codec] = (await VideoDecoder.isConfigSupported({
+          codec, codedWidth: 64, codedHeight: 64
+        })).supported;
+      } catch (error) { result.videoCodecs[codec] = String(error); }
+    }
+  }
+  document.getElementById('result').textContent = JSON.stringify(result, null, 2);
+})().catch(error => document.getElementById('result').textContent = String(error));
+</script>
+</html>
