@@ -144,6 +144,56 @@ async function frameCase(device, mode) {
   }
 }
 
+async function idbRoundTrip() {
+  if (typeof indexedDB === 'undefined') throw new Error('IndexedDB unavailable');
+  const dbName = 's25-idb-backend-check-20261104';
+  const db = await bounded(new Promise((resolve, reject) => {
+    const request = indexedDB.open(dbName, 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains('probe')) {
+        request.result.createObjectStore('probe');
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('IndexedDB open failed'));
+    request.onblocked = () => reject(new Error('IndexedDB open blocked'));
+  }), 'IndexedDB open');
+  try {
+    const value = 'diagnostic-ok';
+    const write = db.transaction('probe', 'readwrite');
+    const committed = new Promise((resolve, reject) => {
+      write.oncomplete = resolve;
+      write.onerror = () => reject(write.error || new Error('IndexedDB write failed'));
+      write.onabort = () => reject(write.error || new Error('IndexedDB write aborted'));
+    });
+    write.objectStore('probe').put(value, 'sentinel');
+    await bounded(committed, 'IndexedDB write');
+    const read = db.transaction('probe', 'readonly').objectStore('probe').get('sentinel');
+    const observed = await bounded(new Promise((resolve, reject) => {
+      read.onsuccess = () => resolve(read.result);
+      read.onerror = () => reject(read.error || new Error('IndexedDB read failed'));
+    }), 'IndexedDB read');
+    if (observed !== value) throw new Error(`IndexedDB readback mismatch: ${observed}`);
+    return {dbName, roundTrip: true};
+  } finally { db.close(); }
+}
+
+async function runStorageCase() {
+  const id = 'idb-roundtrip';
+  const button = document.getElementById(id);
+  if (stopped || button.disabled) return;
+  button.disabled = true;
+  const start = performance.now();
+  record(id, 'START', {expected: 'pass'});
+  try {
+    const detail = await bounded(idbRoundTrip(), id);
+    record(id, 'PASS', {...detail, elapsedMs: Math.round(performance.now() - start)});
+  } catch (error) {
+    record(id, 'ERROR', {error: `${error.name}: ${error.message}`});
+    stop('IndexedDB error or timeout');
+  }
+}
+
 document.getElementById('rgba-valid').onclick = () => runCase('rgba-valid', 'pass',
   device => rgbaCase(device, false));
 document.getElementById('rgba-short').onclick = () => runCase('rgba-short', 'reject',
@@ -154,3 +204,4 @@ document.getElementById('frame-closed').onclick = () => runCase('frame-closed', 
   device => frameCase(device, 'closed'));
 document.getElementById('frame-crop').onclick = () => runCase('frame-crop', 'reject',
   device => frameCase(device, 'crop'));
+document.getElementById('idb-roundtrip').onclick = runStorageCase;
