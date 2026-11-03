@@ -2,6 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google" content="notranslate">
 <title>S25 browser boundary probe</title>
 <style>
   body { font: 16px system-ui, sans-serif; margin: 1.5rem; max-width: 48rem; }
@@ -12,7 +13,7 @@
 <h1>S25 browser boundary probe</h1>
 <p>Run one case at a time. The page records accepted operations, validation errors, and device loss. It sends no results to a server. A browser error is not proof of native code execution.</p>
 <h2>Environment</h2>
-<pre id="result">Checking…</pre>
+<pre id="result" translate="no">Checking…</pre>
 <h2>Single-step cases</h2>
 <button id="rgba-valid">1. RGBA 2×2 write + readback (valid control)</button>
 <button id="rgba-short">2. RGBA 2×2 write with 15 of 16 bytes (expected reject)</button>
@@ -20,7 +21,7 @@
 <button id="frame-closed">4. Closed VideoFrame → GPU texture (expected reject)</button>
 <button id="frame-crop">5. VideoFrame crop beyond source width (expected reject)</button>
 <h2>Observed results</h2>
-<pre id="probe-log">No case run.</pre>
+<pre id="probe-log" translate="no">No case run.</pre>
 <script>
 (async () => {
   const result = {
