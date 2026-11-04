@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Local network boundary check</title>
+<style>
+  body { font: 16px system-ui,sans-serif; margin: 1.5rem; max-width: 48rem; }
+  button { display: block; width: 100%; margin: .6rem 0; padding: .8rem; text-align: left; font: inherit; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f3f4f6; padding: 1rem; }
+</style>
+<h1>Local network boundary check</h1>
+<p>Each button makes one GET request to a harmless marker server on the researcher's PC. The second name resolves to the same LAN address. No address range is scanned, no device setting is changed, and results stay on this page.</p>
+<button id="ip">Request by LAN IP</button>
+<button id="name">Request by hostname resolving to that LAN IP</button>
+<pre id="log">No request made.</pre>
+<script>
+'use strict';
+const host = '192.168.1.103';
+const port = 8765;
+const run = crypto.randomUUID();
+const records = [];
+const logNode = document.getElementById('log');
+function record(kind, status, detail = {}) {
+  records.push({time: new Date().toISOString(), kind, status, detail});
+  logNode.textContent = JSON.stringify(records, null, 2);
+}
+async function probe(kind) {
+  const button = document.getElementById(kind);
+  button.disabled = true;
+  const target = kind === 'ip' ? host : '192-168-1-103.sslip.io';
+  const url = `http://${target}:${port}/ping?run=${encodeURIComponent(run)}&kind=${kind}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  const start = performance.now();
+  record(kind, 'START', {target});
+  try {
+    const response = await fetch(url, {
+      method: 'GET', mode: 'cors', credentials: 'omit', cache: 'no-store',
+      referrerPolicy: 'no-referrer', redirect: 'error',
+      targetAddressSpace: 'local', signal: controller.signal
+    });
+    const body = await response.json();
+    record(kind, response.ok ? 'REACHED' : 'HTTP_ERROR', {
+      httpStatus: response.status, marker: body.marker,
+      seenClient: body.seen?.client, seenHost: body.seen?.host,
+      elapsedMs: Math.round(performance.now() - start)
+    });
+  } catch (error) {
+    record(kind, 'BLOCKED_OR_FAILED', {
+      error: `${error.name}: ${error.message}`,
+      elapsedMs: Math.round(performance.now() - start)
+    });
+  } finally {
+    clearTimeout(timeout);
+    button.disabled = false;
+  }
+}
+document.getElementById('ip').onclick = () => probe('ip');
+document.getElementById('name').onclick = () => probe('name');
+record('environment', 'READY', {
+  userAgent: navigator.userAgent, secureContext: isSecureContext,
+  page: location.href
+});
+</script>
+</html>
