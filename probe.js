@@ -205,3 +205,13 @@ document.getElementById('frame-closed').onclick = () => runCase('frame-closed', 
 document.getElementById('frame-crop').onclick = () => runCase('frame-crop', 'reject',
   device => frameCase(device, 'crop'));
 document.getElementById('idb-roundtrip').onclick = runStorageCase;
+
+// A link to this page can run one existing diagnostic without a second tap.
+// Keep the allowlist limited to these harmless controls.
+const autorunId = new URLSearchParams(location.search).get('autorun');
+if (autorunId && [
+  'rgba-valid', 'rgba-short', 'frame-valid', 'frame-closed',
+  'frame-crop', 'idb-roundtrip'
+].includes(autorunId)) {
+  queueMicrotask(() => document.getElementById(autorunId).click());
+}
