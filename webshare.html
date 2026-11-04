@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google" content="notranslate">
+<title>Web Share önizleme kontrolü</title>
+<style>
+  body { font: 16px system-ui,sans-serif; margin: 1.5rem; max-width: 42rem; }
+  button { display: block; width: 100%; padding: .8rem; margin: .6rem 0; font: inherit; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f3f4f6; padding: 1rem; }
+</style>
+<h1>Web Share önizleme kontrolü</h1>
+<p>Önce kırmızı, sonra mavi düğmesine basın. Her seferinde paylaşım ekranında hedef seçmeden önizleme rengini gözleyip ekranı kapatın. İki dosya da geçerli 32×32 PNG, aynı dosya adına ve MIME türüne sahiptir. Sayfa veri göndermez.</p>
+<button id="red" disabled>Kırmızı PNG paylaş</button>
+<button id="blue" disabled>Mavi PNG paylaş</button>
+<pre id="status">Hazırlanıyor…</pre>
+<script>
+const status = document.getElementById('status');
+const buttons = {red: document.getElementById('red'), blue: document.getElementById('blue')};
+const blobs = {};
+async function makePng(color) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 32;
+  const context = canvas.getContext('2d');
+  context.fillStyle = color;
+  context.fillRect(0, 0, 32, 32);
+  return await new Promise((resolve, reject) =>
+    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('PNG oluşturulamadı')), 'image/png'));
+}
+async function share(which) {
+  const file = new File([blobs[which]], 'preview-control.png', {type:'image/png'});
+  if (!navigator.canShare?.({files:[file]})) {
+    status.textContent = 'Bu tarayıcı dosya paylaşımını desteklemiyor.';
+    return;
+  }
+  try {
+    status.textContent = `${which}: paylaşım ekranı açılıyor`;
+    await navigator.share({files:[file], title:'Önizleme kontrolü'});
+    status.textContent = `${which}: paylaşım tamamlandı`;
+  } catch (error) {
+    status.textContent = `${which}: ${error.name === 'AbortError' ? 'iptal edildi' : error.name + ': ' + error.message}`;
+  }
+}
+Promise.all([makePng('#ff0000'), makePng('#0000ff')]).then(([red, blue]) => {
+  blobs.red = red;
+  blobs.blue = blue;
+  status.textContent = `Hazır; secure=${isSecureContext}, share=${typeof navigator.share}, red=${red.size} bayt, blue=${blue.size} bayt`;
+  for (const which of ['red','blue']) {
+    buttons[which].disabled = false;
+    buttons[which].addEventListener('click', () => share(which));
+  }
+}).catch(error => status.textContent = `Hazırlık hatası: ${error.message}`);
+</script>
+</html>
